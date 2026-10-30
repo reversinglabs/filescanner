@@ -1,0 +1,120 @@
+# Copyright (c) 2026 ReversingLabs
+# SPDX-License-Identifier: MIT
+
+# ===== Spectra Detect =====
+# Required for EVERY backend: host and token must be non-empty even when
+# scan.backend != detect (startup validation runs before backend dispatch).
+# proxy and no_verify_ssl are shared - they apply to whichever backend runs.
+[detect]
+host = https://<detect>          # test worker
+# token supports ${ENV_VAR} expansion. Prefer token = ${SPECTRA_TOKEN}
+token = ${SPECTRA_TOKEN}
+proxy =                  # optional http://proxy:8080
+no_verify_ssl = false    # true disables TLS verification (not recommended)
+
+# ===== What/where to scan =====
+[scan]
+backend = detect           # detect | a1000 | fie | cloud
+drive = E:\
+max_files = 0                  # 0 = scan everything; >0 caps the work list
+# one of: all | comma list of extensions (.exe,.dll) | preset name
+extensions = all
+# exclude_extensions = .tmp,.log      (optional)
+# preset = executables                legacy alias for extensions = <preset>;
+#                                     ignored when extensions/exclude_extensions set
+file_types =             # optional detected-type filter: pe,pdf,ole,zip,...
+skip_hidden_dirs = false  # true = skip directories whose name starts with "."
+analysis_depth = full    # full | fast  (currently no effect)
+detect_file_type = true  # (currently no effect)
+extract_strings = false  # (currently no effect)
+extract_iocs = false  # (currently no effect)
+min_string_len = 6
+max_strings = 200
+max_iocs = 100
+max_enrich_bytes = 26214400  # (currently no effect)
+large_file_threshold = 1000000000  # (currently no effect)
+read_speed_test = ask          # ask | always | off — pre-scan disk benchmark
+min_read_mbps = 1              # warn+gate below this sequential read speed
+read_test_max_bytes = 67108864 # 64 MiB read cap for the benchmark
+read_test_max_seconds = 10     # time cap for the benchmark
+
+# ===== Async pipeline =====
+[pipeline]
+upload_workers = 10            # lightweight threads POSTing uploads
+result_pollers = 1             # threads polling task_url for reports
+result_poll_interval = 2       # seconds between status GETs
+report_wait_hours = 12         # max hours to wait for a report after each file's upload
+max_in_flight = 10000          # pause uploads when submitted-but-undone exceeds this
+progress_every = 100           # milestone log line every N uploads / N reports
+avail_probe_seconds = 20       # shared availability probe cadence; a False
+                               # result gates ALL workers until it recovers
+
+# ===== Upload failure handling =====
+[backoff]
+base_seconds = 2               # first retry delay
+max_seconds = 60               # backoff cap
+upload_retry_window = 600      # give up on one file after this many seconds
+max_upload_attempts = 8        # hard cap on attempts per file
+ready_check_interval = 5       # seconds between readyz probes while gated
+ready_max_wait = 300           # give up waiting for readyz after this
+
+# ===== SQLite state =====
+[database]
+path = scan_state.db           # inside output_dir unless absolute
+retention_days = 7             # records older than this are "old"
+cleanup_old_records = ask      # ask | always | never — what to do at startup
+store_full_report = false      # persist entire tc_report JSON in DB (big!)
+
+# ===== Resume / verdict actions =====
+[actions]
+resume = true                  # skip sha256s already having a verdict
+quarantine_action = none       # none | copy | move
+quarantine_dir =
+quarantine_on = malicious
+alert_on = malicious,suspicious
+alert_webhook =
+alert_syslog =                 # host[:port]
+alert_eventlog = false
+
+# ===== Output =====
+[output]
+output_dir =                   # default <Desktop>\Spectra
+output = spectra_detect_scan_results.json
+report_formats = json,csv,html,pdf  # any of json,csv,html,pdf
+summary_only = false
+verbose = false
+log_max_mb = 50                # rotating scan log size cap
+log_backups = 5                # rotated log files kept (log, log.1..log.5)
+# workers = 10                 # legacy alias -> upload_workers; ignored if [pipeline] upload_workers is set
+
+# ===== Alternative scan backends (used when scan.backend != detect) =====
+[fie]
+host = http://fie.local:8000
+mode = hash_then_scan       # scan | hash_then_scan | hash_only
+trust_ok = false            # treat /check-sample "OK" as a clean verdict
+external_id = rel_path      # external_id query param content: rel_path | filename | none
+
+[a1000]
+host = https://a1000.example.com
+token = ${A1000_TOKEN}
+analysis = cloud            # optional 'analysis' form field; empty = local only
+tags =
+comment =
+archive_password =
+sandbox_platform =          # windows7|windows10|windows11|macos_11|ubuntu_20
+report_detail = summary     # summary | full
+
+[ticloud]
+host = https://data.reversinglabs.com
+username = ${TICLOUD_USER}
+password = ${TICLOUD_PASS}
+domain =                    # optional <domain> in upload metadata XML
+archive_password =          # optional <archive><archive_passwords>
+upload_timeout = 300        # per docs: 300s for spex uploads
+min_interval_ms = 100       # client-side pacing: spex API is 10 req/s
+extended = true             # extended reputation fields on polls/precheck
+
+[reputation]
+precheck = false            # bulk TCA-0101 lookup before upload
+batch_size = 100            # <=100 per API limit
+skip_classified = true      # non-UNKNOWN -> done without upload

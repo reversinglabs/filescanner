@@ -1,0 +1,33 @@
+# Local config — contains API token; never commit. Use config.ini.template.
+config.ini
+
+# Scan state / results
+*.db
+*.db-wal
+*.db-shm
+*.ndjson
+spectra_detect_scan_results.*
+spectra_detect_scan.log
+alerts.ndjson
+quarantine/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Build output (dist/ is tracked on purpose)
+build/
+*.spec
+go/filescanner
+go/filescanner.exe
+
+# Local e2e scan artifacts
+e2e_*_run/
+fs_*_out/
+
+# Editor / IDE / local tooling
+.idea/
+.vscode/
+.claude/
